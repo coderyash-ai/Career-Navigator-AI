@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, Send, User, Trash2, PlusCircle, MessageSquare } from "lucide-react";
+import { Bot, Send, User, Trash2, PlusCircle, MessageSquare, Youtube, ExternalLink, Play } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Navbar } from "@/components/layout/Navbar";
@@ -8,24 +8,103 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useChatStream } from "@/hooks/use-chat-stream";
+import { useChatStream, type YoutubeVideo } from "@/hooks/use-chat-stream";
 import { useListGeminiConversations, useCreateGeminiConversation, useDeleteGeminiConversation, useGetGeminiConversation } from "@workspace/api-client-react";
+
+const CATEGORY_COLORS: Record<string, string> = {
+  "Fundamentals": "border-blue-500/40 text-blue-400 bg-blue-500/10",
+  "Advanced": "border-purple-500/40 text-purple-400 bg-purple-500/10",
+  "Project-Based": "border-green-500/40 text-green-400 bg-green-500/10",
+  "Interview Prep": "border-yellow-500/40 text-yellow-400 bg-yellow-500/10",
+  "Career Tips": "border-cyan-500/40 text-cyan-400 bg-cyan-500/10",
+  "Tools & Frameworks": "border-orange-500/40 text-orange-400 bg-orange-500/10",
+};
+
+function YoutubeVideoCard({ video }: { video: YoutubeVideo }) {
+  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(video.searchQuery)}`;
+  const categoryClass = CATEGORY_COLORS[video.category] ?? "border-white/20 text-gray-400 bg-white/5";
+
+  return (
+    <a
+      href={youtubeUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex gap-3 p-3 rounded-xl border border-white/10 bg-black/30 hover:bg-red-900/20 hover:border-red-500/30 transition-all duration-200"
+    >
+      <div className="w-10 h-10 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center flex-shrink-0 group-hover:bg-red-600/40 transition-colors">
+        <Play className="w-4 h-4 text-red-400 fill-red-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium text-gray-100 group-hover:text-white leading-tight line-clamp-1">{video.title}</p>
+          <ExternalLink className="w-3 h-3 text-gray-500 group-hover:text-red-400 flex-shrink-0 mt-0.5 transition-colors" />
+        </div>
+        <p className="text-xs text-gray-500 mt-0.5 mb-1.5">{video.channel}</p>
+        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">{video.description}</p>
+        <span className={`inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full border ${categoryClass}`}>
+          {video.category}
+        </span>
+      </div>
+    </a>
+  );
+}
+
+function YoutubePanel({ videos, careerTopic }: { videos: YoutubeVideo[]; careerTopic?: string }) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="mt-3 rounded-2xl border border-red-500/20 bg-black/40 backdrop-blur-md overflow-hidden"
+    >
+      <button
+        onClick={() => setIsOpen((v) => !v)}
+        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/5 transition-colors"
+      >
+        <Youtube className="w-4 h-4 text-red-500" />
+        <span className="text-sm font-semibold text-gray-200">
+          Recommended Videos{careerTopic ? ` · ${careerTopic}` : ""}
+        </span>
+        <Badge variant="outline" className="ml-auto text-xs border-red-500/30 text-red-400 bg-red-500/10">
+          {videos.length} videos
+        </Badge>
+        <span className="text-gray-500 text-xs ml-1">{isOpen ? "▲" : "▼"}</span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: "auto" }}
+            exit={{ height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-white/5 pt-3">
+              {videos.map((video, i) => (
+                <YoutubeVideoCard key={i} video={video} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
 
 export default function Chat() {
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // APIs
   const { data: conversations, refetch: refetchConvs } = useListGeminiConversations();
   const { mutateAsync: createConv } = useCreateGeminiConversation();
   const { mutate: deleteConv } = useDeleteGeminiConversation();
   const { data: activeConvData, isFetching: isLoadingHistory } = useGetGeminiConversation(activeConvId || 0, { query: { enabled: !!activeConvId } });
 
-  // Stream Hook
   const { messages, isStreaming, sendMessage, stopStream, setInitialMessages } = useChatStream(activeConvId);
 
-  // Sync loaded history to stream state
   useEffect(() => {
     if (activeConvData?.messages) {
       setInitialMessages(activeConvData.messages as any);
@@ -34,14 +113,12 @@ export default function Chat() {
     }
   }, [activeConvData, setInitialMessages]);
 
-  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isStreaming]);
 
-  // Create initial conversation if none exists
   useEffect(() => {
     if (conversations && conversations.length === 0 && !activeConvId) {
       handleNewChat();
@@ -69,7 +146,6 @@ export default function Chat() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
-    
     sendMessage(input);
     setInput("");
   };
@@ -114,8 +190,8 @@ export default function Chat() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col relative bg-[url('/images/space-bg.png')] bg-cover bg-center bg-no-repeat">
-          <div className="absolute inset-0 bg-background/90 backdrop-blur-3xl z-0" />
+        <div className="flex-1 flex flex-col relative">
+          <div className="absolute inset-0 bg-background/95 backdrop-blur-3xl z-0" />
           
           <div className="flex-1 overflow-y-auto p-4 md:p-8 z-10 space-y-6" ref={scrollRef}>
             {messages.length === 0 && !isLoadingHistory && (
@@ -124,8 +200,12 @@ export default function Chat() {
                   <Bot className="w-10 h-10 text-primary" />
                 </div>
                 <h2 className="text-2xl font-bold font-display text-white mb-2">AI Career Advisor</h2>
-                <p className="text-muted-foreground">
-                  I'm powered by Gemini and trained to help you discover career paths, review your skills, and plan your future. Ask me anything!
+                <p className="text-muted-foreground mb-2">
+                  I'm powered by Gemini and trained to help you discover career paths, review your skills, and plan your future.
+                </p>
+                <p className="text-xs text-muted-foreground/60 flex items-center gap-1.5">
+                  <Youtube className="w-3.5 h-3.5 text-red-400" />
+                  YouTube video recommendations appear automatically after career questions
                 </p>
                 
                 <div className="mt-8 flex flex-wrap justify-center gap-2">
@@ -157,19 +237,29 @@ export default function Chat() {
                     {msg.role === 'user' ? <User className="w-5 h-5 text-secondary" /> : <Bot className="w-5 h-5 text-primary" />}
                   </div>
                   
-                  <div className={`rounded-2xl p-5 ${
-                    msg.role === 'user' 
-                      ? 'bg-secondary/10 border border-secondary/20 text-white rounded-tr-sm' 
-                      : 'bg-black/40 border border-white/10 text-gray-200 rounded-tl-sm backdrop-blur-md'
-                  }`}>
-                    {msg.role === 'assistant' ? (
-                      <div className="prose prose-invert prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content || (isStreaming && idx === messages.length - 1 ? '...' : '')}
-                        </ReactMarkdown>
-                      </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className={`rounded-2xl p-5 ${
+                      msg.role === 'user' 
+                        ? 'bg-secondary/10 border border-secondary/20 text-white rounded-tr-sm' 
+                        : 'bg-black/40 border border-white/10 text-gray-200 rounded-tl-sm backdrop-blur-md'
+                    }`}>
+                      {msg.role === 'assistant' ? (
+                        <div className="prose prose-invert prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.content || (isStreaming && idx === messages.length - 1 ? '▌' : '')}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      )}
+                    </div>
+
+                    {/* YouTube Video Recommendations */}
+                    {msg.role === 'assistant' && (msg as any).youtubeVideos?.length > 0 && (
+                      <YoutubePanel
+                        videos={(msg as any).youtubeVideos}
+                        careerTopic={(msg as any).careerTopic}
+                      />
                     )}
                   </div>
                 </motion.div>
@@ -209,7 +299,7 @@ export default function Chat() {
               )}
             </form>
             <p className="text-center text-xs text-muted-foreground mt-3">
-              AI can make mistakes. Verify important career decisions.
+              YouTube video suggestions auto-appear after career-related answers.
             </p>
           </div>
         </div>
