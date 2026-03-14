@@ -1,0 +1,101 @@
+🎯 System Context & Role
+
+Act as a Lead Full-Stack Engineer, UI/UX Expert, and 3D WebGL Specialist.
+
+I am building an "AI-Based Intelligent Career Path Recommendation System" based on a detailed PRD/TRD. We are pivoting to use the Google Gemini API for our AI inference (career matching and roadmaps) instead of custom-trained ML models.
+
+🎨 Visual & UI Requirements (Crucial)
+
+Theme: Deep Dark Mode. Backgrounds should be deep space blue/black (#050511 to #0B0F19).
+
+Accents: Vibrant neon gradients (Electric Purple #8A2BE2, Cyan #00E5FF, Royal Blue #2962FF).
+
+Style: Glassmorphism. Use semi-transparent frosted glass cards with heavy background blur (backdrop-blur-md) and subtle 1px white/purple borders.
+
+Typography: Modern sans-serif like Inter or Space Grotesk. High contrast white/gray text.
+
+🛠️ Tech Stack
+
+Frontend: Next.js 14 (App Router), React, TypeScript, Tailwind CSS, Framer Motion (for page transitions).
+
+3D Background: @react-three/fiber and @react-three/drei (Crucial for the hero section).
+
+Backend: Python (FastAPI) for high-performance API endpoints.
+
+Database: SQLite (using SQLAlchemy ORM for database modeling and management).
+
+AI Engine: Google Gemini SDK (google-genai package for Python).
+
+🚀 Execution Instructions for AI Assistant
+
+Please generate the project step-by-step according to the following phases:
+
+PHASE 1: The Interactive 3D Hero Section & UI Shell
+
+Create the landing page. The hero section must feature a highly interactive and responsive 3D moving background. It should resemble a central cluster of interconnected purple and blue spheres (a "metaball" or neural network cluster concept).
+
+3D Implementation Details:
+
+Install dependencies: npm install three @react-three/fiber @react-three/drei framer-motion
+
+Create a component Hero3DBackground.tsx. Use a Canvas from React Three Fiber.
+
+Responsiveness: Ensure the Canvas scales perfectly across mobile, tablet, and desktop viewports without squishing the aspect ratio (use useThree viewport logic if necessary).
+
+The Mesh: Inside the canvas, create an InstancedMesh of spheres, or a grouped particle system of glowing purple and blue spheres.
+
+Interactivity: Add useFrame to slowly rotate the entire cluster on the Y and X axes to simulate floating. Additionally, implement mouse tracking so the 3D cluster slightly shifts its rotation or changes scale/color intensity based on the user's cursor position (parallax effect).
+
+Overlay the glassmorphic UI (Headline: "Unlock Your True Career Potential with AI", CTA: "Generate My Career Path") strictly on top of the 3D canvas using absolute positioning and z-index.
+
+PHASE 2: Database Schema (SQLAlchemy + SQLite)
+
+Generate a models.py and database.py file to set up SQLite using SQLAlchemy:
+
+Connection: Setup sqlite:///./career_ai.db.
+
+User model: id, email, password_hash, role.
+
+UserProfile model: linked to User (skills JSON, interests JSON, education JSON, experience JSON).
+
+Recommendation model: id, user_id, career_title, match_percentage, generated_data (JSON).
+
+PHASE 3: Gemini API Backend Integration (FastAPI)
+
+I need you to write the FastAPI controllers that construct prompts for the Gemini API. Use Gemini's Structured Outputs (Pydantic Schema) to ensure the React frontend receives parseable JSON data, not conversational text.
+
+Endpoint 1: POST /api/recommendations
+
+Logic: Fetch UserProfile from SQLite. Prompt Gemini: "Act as an expert career counselor. Given this user profile 
+
+$$data$$
+
+, recommend 3 distinct career paths."
+
+Required JSON Schema: An array of objects containing careerTitle (string), matchPercentage (number), explanation (string), and missingSkills (array of strings).
+
+Endpoint 2: POST /api/roadmap
+
+Logic: Take a selected career path. Prompt Gemini: "Create a step-by-step learning roadmap to transition from 
+
+$$current skills$$
+
+ to 
+
+$$target career$$
+
+."
+
+Required JSON Schema: An array of milestone objects: monthRange (string), focusArea (string), specificTopics (array of strings), projectIdea (string).
+
+PHASE 4: Core Dashboard UI
+
+Generate the React components for the main dashboard connecting to the FastAPI backend:
+
+Onboarding Form: A sleek, multi-step glassmorphic form to capture skills and interests.
+
+Career Matches View: Display the JSON returned from /api/recommendations. Use circular progress bars (SVG or a library like react-circular-progressbar) for the matchPercentage.
+
+Roadmap Timeline: A vertical timeline component displaying the milestones from /api/roadmap. Use Framer Motion to animate the timeline nodes revealing on scroll.
+
+Let's begin! Please start by generating the Python FastAPI main.py setup with SQLite, followed by the Hero3DBackground.tsx for the frontend.

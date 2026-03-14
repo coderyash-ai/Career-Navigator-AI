@@ -1,0 +1,19 @@
+packages:
+  "framer-motion": "For page transitions, timeline animations, and smooth UI interactions"
+  "three": "Required peer dependency for 3D elements"
+  "@react-three/fiber": "React renderer for Three.js to build the Siri-like 3D orb"
+  "@react-three/drei": "Useful helpers for React Three Fiber (MeshDistortMaterial)"
+  "react-markdown": "To safely render markdown responses from the Gemini AI"
+  "remark-gfm": "Plugin for react-markdown to support tables and github-flavored markdown"
+
+images:
+  - path: "artifacts/career-ai/public/images/space-bg.png"
+    description: "Deep dark space background with subtle nebulae in dark purple and cyan, perfect for a glassmorphism UI overlay"
+    aspect_ratio: "16:9"
+  - path: "artifacts/career-ai/public/images/avatar-placeholder.png"
+    description: "A highly stylized, neon-lit cyberpunk style default user avatar icon on a dark background"
+    aspect_ratio: "1:1"
+
+notes:
+  - The API uses POST for the SSE chat endpoint (/api/gemini/conversations/{id}/messages), which requires manual fetch + ReadableStream instead of standard EventSource.
+  - Using generated hooks from @workspace/api-client-react for all standard REST calls.

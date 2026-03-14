@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Career Path Navigator API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: gemini
+    description: Gemini AI chat and image operations
+  - name: career
+    description: Career path recommendation and roadmap operations
 paths:
   /healthz:
     get:
@@ -24,6 +27,182 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /gemini/conversations:
+    get:
+      operationId: listGeminiConversations
+      tags: [gemini]
+      summary: List all conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiConversation"
+    post:
+      operationId: createGeminiConversation
+      tags: [gemini]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGeminiConversationBody"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversation"
+
+  /gemini/conversations/{id}:
+    get:
+      operationId: getGeminiConversation
+      tags: [gemini]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiError"
+    delete:
+      operationId: deleteGeminiConversation
+      tags: [gemini]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiError"
+
+  /gemini/conversations/{id}/messages:
+    get:
+      operationId: listGeminiMessages
+      tags: [gemini]
+      summary: List messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiMessage"
+    post:
+      operationId: sendGeminiMessage
+      tags: [gemini]
+      summary: Send a message and receive an AI response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendGeminiMessageBody"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks
+          content:
+            text/event-stream: {}
+
+  /career/recommendations:
+    post:
+      operationId: getCareerRecommendations
+      tags: [career]
+      summary: Get AI career path recommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CareerRecommendationRequest"
+      responses:
+        "200":
+          description: Career recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerRecommendationResponse"
+
+  /career/roadmap:
+    post:
+      operationId: getCareerRoadmap
+      tags: [career]
+      summary: Get AI-generated learning roadmap for a career path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CareerRoadmapRequest"
+      responses:
+        "200":
+          description: Career roadmap with milestones
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerRoadmapResponse"
+
+  /career/youtube-suggestions:
+    post:
+      operationId: getYoutubeSuggestions
+      tags: [career]
+      summary: Get YouTube video suggestions for a career path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YoutubeSuggestionsRequest"
+      responses:
+        "200":
+          description: YouTube video suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YoutubeSuggestionsResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +213,236 @@ components:
       required:
         - status
 
+    GeminiConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+
+    GeminiMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+
+    CreateGeminiConversationBody:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+
+    SendGeminiMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    GeminiConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeminiMessage"
+      required:
+        - id
+        - title
+        - createdAt
+        - messages
+
+    GeminiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    CareerRecommendationRequest:
+      type: object
+      properties:
+        skills:
+          type: array
+          items:
+            type: string
+        interests:
+          type: array
+          items:
+            type: string
+        education:
+          type: string
+        experience:
+          type: string
+        goals:
+          type: string
+      required:
+        - skills
+        - interests
+
+    CareerMatch:
+      type: object
+      properties:
+        careerTitle:
+          type: string
+        matchPercentage:
+          type: number
+        explanation:
+          type: string
+        missingSkills:
+          type: array
+          items:
+            type: string
+        salary:
+          type: string
+        jobOutlook:
+          type: string
+      required:
+        - careerTitle
+        - matchPercentage
+        - explanation
+        - missingSkills
+        - salary
+        - jobOutlook
+
+    CareerRecommendationResponse:
+      type: object
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerMatch"
+      required:
+        - recommendations
+
+    CareerRoadmapRequest:
+      type: object
+      properties:
+        careerTitle:
+          type: string
+        currentSkills:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+      required:
+        - careerTitle
+        - currentSkills
+
+    RoadmapMilestone:
+      type: object
+      properties:
+        monthRange:
+          type: string
+        focusArea:
+          type: string
+        specificTopics:
+          type: array
+          items:
+            type: string
+        projectIdea:
+          type: string
+        resources:
+          type: array
+          items:
+            type: string
+      required:
+        - monthRange
+        - focusArea
+        - specificTopics
+        - projectIdea
+        - resources
+
+    CareerRoadmapResponse:
+      type: object
+      properties:
+        careerTitle:
+          type: string
+        milestones:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoadmapMilestone"
+        totalDuration:
+          type: string
+      required:
+        - careerTitle
+        - milestones
+        - totalDuration
+
+    YoutubeSuggestionsRequest:
+      type: object
+      properties:
+        careerTitle:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+      required:
+        - careerTitle
+        - topics
+
+    YoutubeVideo:
+      type: object
+      properties:
+        title:
+          type: string
+        channel:
+          type: string
+        searchQuery:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+      required:
+        - title
+        - channel
+        - searchQuery
+        - description
+        - category
+
+    YoutubeSuggestionsResponse:
+      type: object
+      properties:
+        videos:
+          type: array
+          items:
+            $ref: "#/components/schemas/YoutubeVideo"
+      required:
+        - videos
