@@ -1,8 +1,31 @@
 import { useState, useRef, useCallback } from "react";
 import type { GeminiMessage } from "@workspace/api-client-react";
 
+export interface YoutubeVideo {
+  title: string;
+  channel: string;
+  searchQuery: string;
+  description: string;
+  category: string;
+}
+
+export interface ChatMessage extends GeminiMessage {
+  youtubeVideos?: YoutubeVideo[];
+  careerTopic?: string;
+}
+
+async function fetchChatVideos(userMessage: string): Promise<{ videos: YoutubeVideo[]; careerTopic: string; isCareerRelated: boolean }> {
+  const res = await fetch("/api/career/chat-videos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userMessage }),
+  });
+  if (!res.ok) return { videos: [], careerTopic: "", isCareerRelated: false };
+  return res.json();
+}
+
 export function useChatStream(conversationId: number | null) {
-  const [messages, setMessages] = useState<GeminiMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -11,9 +34,8 @@ export function useChatStream(conversationId: number | null) {
   const sendMessage = useCallback(async (content: string) => {
     if (!conversationId) return;
     
-    // Add user message optimistically
-    const userMsg: GeminiMessage = {
-      id: Date.now(), // temporary
+    const userMsg: ChatMessage = {
+      id: Date.now(),
       conversationId,
       role: "user",
       content,
@@ -24,7 +46,6 @@ export function useChatStream(conversationId: number | null) {
     setIsStreaming(true);
     setError(null);
     
-    // Add empty assistant message to be filled by stream
     const assistantMsgId = Date.now() + 1;
     setMessages((prev) => [
       ...prev,
@@ -47,10 +68,7 @@ export function useChatStream(conversationId: number | null) {
         signal: abortControllerRef.current.signal,
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to send message");
-      }
-
+      if (!response.ok) throw new Error("Failed to send message");
       if (!response.body) throw new Error("No response body");
 
       const reader = response.body.getReader();
@@ -88,6 +106,20 @@ export function useChatStream(conversationId: number | null) {
           }
         }
       }
+
+      // After streaming done, fetch YouTube videos in the background
+      fetchChatVideos(content).then(({ videos, careerTopic, isCareerRelated }) => {
+        if (isCareerRelated && videos.length > 0) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMsgId
+                ? { ...msg, youtubeVideos: videos, careerTopic }
+                : msg
+            )
+          );
+        }
+      }).catch(() => {});
+
     } catch (err: any) {
       if (err.name === "AbortError") {
         console.log("Stream aborted");
@@ -107,7 +139,7 @@ export function useChatStream(conversationId: number | null) {
   }, []);
 
   const setInitialMessages = useCallback((msgs: GeminiMessage[]) => {
-    setMessages(msgs);
+    setMessages(msgs as ChatMessage[]);
   }, []);
 
   return {

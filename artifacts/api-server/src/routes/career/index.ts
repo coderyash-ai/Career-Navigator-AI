@@ -88,6 +88,39 @@ Create 4-6 milestones that logically progress from beginner to job-ready level.`
   res.json(parsed);
 });
 
+router.post("/chat-videos", async (req, res) => {
+  const { userMessage } = req.body as { userMessage: string };
+  if (!userMessage) return res.status(400).json({ error: "userMessage required" });
+
+  const extractPrompt = `Given this user message about careers: "${userMessage}"
+Extract the main career topic and suggest 4 specific YouTube videos relevant to that career.
+Respond with ONLY valid JSON (no markdown, no code blocks):
+{
+  "careerTopic": "detected career topic",
+  "isCareerRelated": true or false,
+  "videos": [
+    {
+      "title": "Specific video or series title",
+      "channel": "YouTube Channel Name",
+      "searchQuery": "exact YouTube search query",
+      "description": "1-2 sentence description",
+      "category": "one of: Fundamentals, Advanced, Project-Based, Interview Prep, Career Tips, Tools & Frameworks"
+    }
+  ]
+}
+If the message is not career-related, set isCareerRelated to false and return an empty videos array.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ role: "user", parts: [{ text: extractPrompt }] }],
+    config: { maxOutputTokens: 4096, responseMimeType: "application/json" },
+  });
+
+  const rawText = response.text ?? "{}";
+  const parsed = JSON.parse(rawText);
+  res.json(parsed);
+});
+
 router.post("/youtube-suggestions", async (req, res) => {
   const body = GetYoutubeSuggestionsBody.parse(req.body);
 
