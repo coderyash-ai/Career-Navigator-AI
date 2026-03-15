@@ -1,9 +1,23 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { db, battles, battleAnswers, quizResults, users } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../../middlewares/auth";
 import { ai } from "@workspace/integrations-gemini-ai";
 import type { Server as SocketServer } from "socket.io";
+
+// Input validation helper
+function sanitizeString(input: any): string {
+  if (typeof input !== 'string') return '';
+  return input.trim().replace(/[<>]/g, '');
+}
+
+function validateCareerField(field: any): string {
+  const sanitized = sanitizeString(field);
+  if (!sanitized || sanitized.length < 2 || sanitized.length > 100) {
+    throw new Error('Career field must be between 2-100 characters');
+  }
+  return sanitized;
+}
 
 const router = Router();
 
@@ -32,18 +46,21 @@ Respond with ONLY valid JSON (no markdown):
   return parsed.questions ?? [];
 }
 
-router.post("/create", authMiddleware, async (req: AuthRequest, res) => {
+router.post("/create", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { careerField } = req.body;
     if (!careerField) return res.status(400).json({ error: "careerField required" });
 
+    // Validate and sanitize input
+    const sanitizedCareerField = validateCareerField(careerField);
+
     const waiting = await db.select().from(battles)
-      .where(and(eq(battles.status, "waiting"), eq(battles.careerField, careerField)))
+      .where(and(eq(battles.status, "waiting"), eq(battles.careerField, sanitizedCareerField)))
       .limit(1);
 
     if (waiting.length > 0 && waiting[0].player1Id !== req.userId) {
       const battle = waiting[0];
-      const questions = await generateBattleQuestions(careerField);
+      const questions = await generateBattleQuestions(sanitizedCareerField);
       const [updated] = await db.update(battles)
         .set({ player2Id: req.userId, status: "active", questions })
         .where(eq(battles.id, battle.id))
@@ -53,28 +70,42 @@ router.post("/create", authMiddleware, async (req: AuthRequest, res) => {
     }
 
     const [battle] = await db.insert(battles)
-      .values({ player1Id: req.userId!, careerField, status: "waiting" })
+      .values({ player1Id: req.userId!, careerField: sanitizedCareerField, status: "waiting" })
       .returning();
-    res.json({ battle, role: "player1" });
+    return res.json({ battle, role: "player1" });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/:battleId", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/:battleId", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const [battle] = await db.select().from(battles).where(eq(battles.id, parseInt(req.params.battleId))).limit(1);
+    const battleId = parseInt(req.params.battleId as string);
+    if (isNaN(battleId)) return res.status(400).json({ error: "Invalid battle ID" });
+    
+    const [battle] = await db.select().from(battles).where(eq(battles.id, battleId)).limit(1);
     if (!battle) return res.status(404).json({ error: "Battle not found" });
-    res.json(battle);
+    return res.json(battle);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
-router.post("/:battleId/answer", authMiddleware, async (req: AuthRequest, res) => {
+router.post("/:battleId/answer", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { questionIndex, answer, timeTaken } = req.body;
-    const battleId = parseInt(req.params.battleId);
+    const battleId = parseInt(req.params.battleId as string);
+
+    // Validate inputs
+    if (typeof questionIndex !== 'number' || questionIndex < 0) {
+      return res.status(400).json({ error: "Invalid question index" });
+    }
+    if (typeof answer !== 'string' || !answer.trim()) {
+      return res.status(400).json({ error: "Answer is required" });
+    }
+    if (typeof timeTaken !== 'number' || timeTaken < 0) {
+      return res.status(400).json({ error: "Invalid time taken" });
+    }
 
     const [battle] = await db.select().from(battles).where(eq(battles.id, battleId)).limit(1);
     if (!battle || !battle.questions) return res.status(404).json({ error: "Battle not found" });
@@ -86,13 +117,13 @@ router.post("/:battleId/answer", authMiddleware, async (req: AuthRequest, res) =
     await db.insert(battleAnswers).values({ battleId, userId: req.userId!, questionIndex, answer, isCorrect, timeTaken });
 
     const allAnswers = await db.select().from(battleAnswers).where(eq(battleAnswers.battleId, battleId));
-    const p1Answers = allAnswers.filter(a => a.userId === battle.player1Id);
-    const p2Answers = allAnswers.filter(a => a.userId === battle.player2Id);
+    const p1Answers = allAnswers.filter((a: any) => a.userId === battle.player1Id);
+    const p2Answers = allAnswers.filter((a: any) => a.userId === battle.player2Id);
     const totalQ = questions.length;
 
     if (p1Answers.length === totalQ && p2Answers.length === totalQ) {
-      const p1Score = p1Answers.filter(a => a.isCorrect).length;
-      const p2Score = p2Answers.filter(a => a.isCorrect).length;
+      const p1Score = p1Answers.filter((a: any) => a.isCorrect).length;
+      const p2Score = p2Answers.filter((a: any) => a.isCorrect).length;
       const winnerId = p1Score > p2Score ? battle.player1Id : p2Score > p1Score ? battle.player2Id : null;
       const pointsAwarded = 75;
 
@@ -101,37 +132,28 @@ router.post("/:battleId/answer", authMiddleware, async (req: AuthRequest, res) =
       }).where(eq(battles.id, battleId)).returning();
 
       if (winnerId) {
-        const loserId = winnerId === battle.player1Id ? battle.player2Id! : battle.player1Id;
-        const [winner] = await db.select().from(users).where(eq(users.id, winnerId)).limit(1);
-        const [loser] = await db.select().from(users).where(eq(users.id, loserId)).limit(1);
-        await db.update(users).set({ points: winner.points + pointsAwarded }).where(eq(users.id, winnerId));
-        await db.update(users).set({ points: Math.max(0, loser.points - Math.floor(pointsAwarded / 2)) }).where(eq(users.id, loserId));
+        await db.update(users).set({ points: sql`points + ${pointsAwarded}` }).where(eq(users.id, winnerId));
+        if (io) io.to(`battle-${battleId}`).emit("battle-end", { battle: finishedBattle });
       }
-
-      if (battle.player2Id) {
-        await db.insert(quizResults).values([
-          { userId: battle.player1Id, careerField: battle.careerField, score: p1Score, total: totalQ, type: "battle" },
-          { userId: battle.player2Id, careerField: battle.careerField, score: p2Score, total: totalQ, type: "battle" },
-        ]);
-      }
-
-      if (io) io.to(`battle-${battleId}`).emit("battle-end", { battle: finishedBattle, p1Score, p2Score, winnerId });
-      return res.json({ done: true, battle: finishedBattle, isCorrect });
+      return res.json({ battle: finishedBattle, winner: winnerId === req.userId });
     }
 
-    if (io) io.to(`battle-${battleId}`).emit("answer-submitted", { userId: req.userId, questionIndex, isCorrect });
-    res.json({ done: false, isCorrect });
+    return res.json({ success: true, isCorrect });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/:battleId/status", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/:battleId/status", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const [battle] = await db.select().from(battles).where(eq(battles.id, parseInt(req.params.battleId))).limit(1);
-    res.json(battle ?? null);
+    const battleId = parseInt(req.params.battleId as string);
+    if (isNaN(battleId)) return res.status(400).json({ error: "Invalid battle ID" });
+    
+    const [battle] = await db.select().from(battles).where(eq(battles.id, battleId)).limit(1);
+    if (!battle) return res.status(404).json({ error: "Battle not found" });
+    return res.json(battle);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 

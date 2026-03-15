@@ -1,14 +1,45 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
-import { Save, LogOut } from "lucide-react";
+import { Save, LogOut, Search, ChevronDown } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { AVATARS, getAvatar } from "@/lib/avatars";
 
-const CAREER_OPTIONS = ["Machine Learning", "Web Development", "Data Science", "Cybersecurity", "Cloud Computing", "UX Design", "DevOps", "Blockchain", "Game Development", "Mobile Development", "Prompt Engineering", "Other"];
+const CAREER_OPTIONS = [
+  // Technology
+  "Machine Learning", "Web Development", "Data Science", "Cybersecurity", "Cloud Computing", 
+  "UX Design", "DevOps", "Blockchain", "Game Development", "Mobile Development",
+  // Healthcare & Medicine
+  "Medicine", "Nursing", "Pharmacy", "Dentistry", "Psychology", "Physical Therapy", 
+  "Public Health", "Biotechnology",
+  // Business & Finance
+  "Business Administration", "Finance", "Accounting", "Marketing", "Entrepreneurship",
+  "Human Resources", "Supply Chain Management", "Economics",
+  // Arts & Design
+  "Graphic Design", "Fine Arts", "Music", "Film & Video", "Photography", 
+  "Fashion Design", "Interior Design", "Architecture",
+  // Sciences
+  "Physics", "Chemistry", "Biology", "Mathematics", "Environmental Science",
+  "Astronomy", "Geology",
+  // Engineering
+  "Mechanical Engineering", "Electrical Engineering", "Civil Engineering", 
+  "Chemical Engineering", "Aerospace Engineering", "Robotics",
+  // Social Sciences & Humanities
+  "Law", "Political Science", "Sociology", "History", "Philosophy", 
+  "Literature", "Linguistics", "Anthropology",
+  // Education
+  "Elementary Education", "Secondary Education", "Higher Education", 
+  "Special Education", "Educational Technology",
+  // Media & Communication
+  "Journalism", "Public Relations", "Digital Media", "Advertising",
+  // Trades & Services
+  "Culinary Arts", "Hospitality Management", "Automotive Technology", 
+  "Construction", "Agriculture", "Veterinary Science",
+  "Other"
+];
 
 export default function Profile() {
   const { user, token, logout, updateUser, refreshUser } = useAuth();
@@ -16,9 +47,16 @@ export default function Profile() {
   const [selectedAvatar, setSelectedAvatar] = useState(user?.avatarId ?? 0);
   const [username, setUsername] = useState(user?.username ?? "");
   const [careerField, setCareerField] = useState(user?.careerField ?? "");
+  const [careerSearch, setCareerSearch] = useState(user?.careerField ?? "");
+  const [showDropdown, setShowDropdown] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+
+  // Filter career fields based on search
+  const filteredCareers = CAREER_OPTIONS.filter(field =>
+    field.toLowerCase().includes(careerSearch.toLowerCase())
+  );
 
   if (!user) { setLocation("/login"); return null; }
 
@@ -100,15 +138,61 @@ export default function Profile() {
               </div>
               <div>
                 <label className="text-sm text-gray-300 font-medium block mb-2">Primary Career Field</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {CAREER_OPTIONS.map(f => (
-                    <button key={f} type="button" onClick={() => setCareerField(f)}
-                      className={`p-2.5 rounded-xl text-xs font-medium text-left transition-all border ${careerField === f ? "bg-primary/20 border-primary/50 text-primary" : "border-white/10 text-gray-300 hover:bg-white/5"}`}
-                    >
-                      {f}
-                    </button>
-                  ))}
+                
+                {/* Searchable Dropdown for Career Fields */}
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search career fields..."
+                      value={careerSearch}
+                      onChange={(e) => {
+                        setCareerSearch(e.target.value);
+                        setShowDropdown(true);
+                      }}
+                      onFocus={() => setShowDropdown(true)}
+                      className="pl-10 pr-4 py-3 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus-visible:ring-primary/50"
+                    />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+                  
+                  {/* Dropdown Results */}
+                  {showDropdown && (
+                    <div className="absolute z-50 w-full mt-2 max-h-60 overflow-y-auto glass rounded-xl border border-white/10 bg-black/80 backdrop-blur-xl">
+                      {filteredCareers.length > 0 ? (
+                        filteredCareers.map((field) => (
+                          <button
+                            key={field}
+                            type="button"
+                            onClick={() => {
+                              setCareerField(field);
+                              setCareerSearch(field);
+                              setShowDropdown(false);
+                            }}
+                            className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-white/10 ${
+                              careerField === field ? "bg-primary/20 text-primary" : "text-gray-300"
+                            }`}
+                          >
+                            {field}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-gray-500">No fields found</div>
+                      )}
+                    </div>
+                  )}
                 </div>
+                
+                {/* Selected Field Badge */}
+                {careerField && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Selected:</span>
+                    <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-sm font-medium">
+                      {careerField}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

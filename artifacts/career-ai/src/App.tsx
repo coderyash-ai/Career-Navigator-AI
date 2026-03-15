@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AuthGuard } from "@/components/AuthGuard";
 
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
@@ -40,25 +41,53 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/dashboard">
-        {() => <ProtectedRoute component={Dashboard} />}
+        {() => (
+          <AuthGuard requireAuth={true}>
+            <Dashboard />
+          </AuthGuard>
+        )}
       </Route>
       <Route path="/profile">
-        {() => <ProtectedRoute component={Profile} />}
+        {() => (
+          <AuthGuard requireAuth={true}>
+            <Profile />
+          </AuthGuard>
+        )}
       </Route>
       <Route path="/battle">
-        {() => <ProtectedRoute component={Battle} />}
+        {() => (
+          <AuthGuard requireAuth={true}>
+            <Battle />
+          </AuthGuard>
+        )}
       </Route>
       <Route path="/onboarding">
-        {() => <ProtectedRoute component={Onboarding} />}
+        {() => (
+          <AuthGuard requireAuth={true}>
+            <Onboarding />
+          </AuthGuard>
+        )}
       </Route>
       <Route path="/recommendations">
-        {() => <ProtectedRoute component={Recommendations} />}
+        {() => (
+          <AuthGuard requireAuth={true}>
+            <Recommendations />
+          </AuthGuard>
+        )}
       </Route>
       <Route path="/roadmap">
-        {() => <ProtectedRoute component={Roadmap} />}
+        {() => (
+          <AuthGuard requireAuth={true}>
+            <Roadmap />
+          </AuthGuard>
+        )}
       </Route>
       <Route path="/chat">
-        {() => <ProtectedRoute component={Chat} />}
+        {() => (
+          <AuthGuard requireAuth={true}>
+            <Chat />
+          </AuthGuard>
+        )}
       </Route>
       <Route component={NotFound} />
     </Switch>

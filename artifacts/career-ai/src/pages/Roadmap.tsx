@@ -28,6 +28,8 @@ export default function Roadmap() {
   const [mockRoadmap, setMockRoadmap] = useState<any>(null);
   const [progress, setProgress] = useState<Record<number, boolean>>({});
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const [researchLinks, setResearchLinks] = useState<any[]>([]);
+  const [researchLoading, setResearchLoading] = useState(false);
 
   useEffect(() => {
     const userSkills = JSON.parse(sessionStorage.getItem("userSkills") || "[]");
@@ -44,6 +46,14 @@ export default function Roadmap() {
       },
     });
     getVideos({ data: { careerTitle, topics: ["Beginner Tutorial", "Day in the life", "Interview Prep"] } });
+
+    // Fetch research links
+    setResearchLoading(true);
+    fetch(`/api/career/research-links?careerTitle=${encodeURIComponent(careerTitle)}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setResearchLinks(data); })
+      .catch(() => {})
+      .finally(() => setResearchLoading(false));
   }, [careerTitle]);
 
   useEffect(() => {
@@ -61,7 +71,7 @@ export default function Roadmap() {
   const toggleMilestone = async (index: number) => {
     if (!user || !token) return;
     const newVal = !progress[index];
-    setProgress(prev => ({ ...prev, [index]: newVal }));
+    setProgress((prev: Record<number, boolean>) => ({ ...prev, [index]: newVal }));
     setSavingIndex(index);
     try {
       await fetch(`/api/progress/roadmap/${encodeURIComponent(careerTitle)}/${index}`, {
@@ -180,9 +190,40 @@ export default function Roadmap() {
         <div className="mt-24 border-t border-white/10 pt-16">
           <div className="flex items-center gap-3 mb-3">
             <FlaskConical className="w-8 h-8 text-cyan-400" />
-            <h2 className="text-3xl font-bold text-white font-display">Research Resources</h2>
+            <h2 className="text-3xl font-bold text-white font-display">Research & Deep Dive</h2>
           </div>
-          <p className="text-muted-foreground mb-8">Explore academic papers and research on <span className="text-cyan-400 font-medium">{careerTitle}</span> to deepen your expertise.</p>
+          <p className="text-muted-foreground mb-8">AI-curated research papers and technical resources to help you master <span className="text-cyan-400 font-medium">{careerTitle}</span>.</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            {researchLoading ? (
+              [...Array(4)].map((_, i) => <div key={i} className="h-32 rounded-2xl bg-white/5 animate-pulse border border-white/10" />)
+            ) : researchLinks.length > 0 ? (
+              researchLinks.map((paper: any, i: number) => (
+                <a key={i} href={paper.url} target="_blank" rel="noopener noreferrer" 
+                  className="group p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-cyan-500/50 transition-all"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider border-cyan-500/30 text-cyan-400">{paper.category}</Badge>
+                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
+                  </div>
+                  <h3 className="font-bold text-white mb-2 group-hover:text-cyan-400 transition-colors">{paper.title}</h3>
+                  <p className="text-xs text-gray-400 mb-4 line-clamp-2">{paper.description}</p>
+                  <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
+                    <span>{paper.authors}</span>
+                    <span>{paper.year}</span>
+                  </div>
+                </a>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-10 glass rounded-2xl border border-white/5">
+                <p className="text-muted-foreground">No specific papers found. Use the general research tools below.</p>
+              </div>
+            )}
+          </div>
+
+          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-gray-400" /> General Research Tools
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {RESEARCH_SITES.map(site => (
               <a key={site.name} href={site.url(careerTitle)} target="_blank" rel="noopener noreferrer"

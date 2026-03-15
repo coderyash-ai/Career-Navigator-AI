@@ -99,6 +99,20 @@ export function useChatStream(conversationId: number | null) {
                 if (data.done) {
                   done = true;
                 }
+                if (data.error) {
+                  setError(data.error);
+                  if (data.quotaExceeded) {
+                    // Special handling for quota exceeded
+                    setMessages((prev) => 
+                      prev.map((msg) => 
+                        msg.id === assistantMsgId 
+                          ? { ...msg, content: `⚠️ ${data.error}\n\nPlease try again in a few moments. The AI service has reached its usage limit.` }
+                          : msg
+                      )
+                    );
+                  }
+                  done = true;
+                }
               } catch (e) {
                 console.error("Error parsing SSE chunk", e);
               }

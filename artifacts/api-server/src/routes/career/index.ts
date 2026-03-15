@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
   GetCareerRecommendationsBody,
@@ -8,10 +8,11 @@ import {
 
 const router: IRouter = Router();
 
-router.post("/recommendations", async (req, res) => {
-  const body = GetCareerRecommendationsBody.parse(req.body);
+router.post("/recommendations", async (req: Request, res: Response) => {
+  try {
+    const body = GetCareerRecommendationsBody.parse(req.body);
 
-  const prompt = `You are an expert career counselor and AI career advisor. Based on the following student profile, recommend exactly 5 distinct career paths.
+    const prompt = `You are an expert career counselor and AI career advisor. Based on the following student profile, recommend exactly 5 distinct career paths.
 
 Student Profile:
 - Skills: ${body.skills.join(", ")}
@@ -34,24 +35,29 @@ Respond with ONLY a valid JSON object (no markdown, no code blocks, just raw JSO
   ]
 }`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      maxOutputTokens: 8192,
-      responseMimeType: "application/json",
-    },
-  });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json",
+      },
+    });
 
-  const rawText = response.text ?? "{}";
-  const parsed = JSON.parse(rawText);
-  res.json(parsed);
+    const rawText = response.text ?? "{}";
+    const parsed = JSON.parse(rawText);
+    res.json(parsed);
+  } catch (err: any) {
+    console.error("Error in /recommendations:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post("/roadmap", async (req, res) => {
-  const body = GetCareerRoadmapBody.parse(req.body);
+router.post("/roadmap", async (req: Request, res: Response) => {
+  try {
+    const body = GetCareerRoadmapBody.parse(req.body);
 
-  const prompt = `You are an expert career counselor. Create a detailed, actionable learning roadmap for a student who wants to become a ${body.careerTitle}.
+    const prompt = `You are an expert career counselor. Create a detailed, actionable learning roadmap for a student who wants to become a ${body.careerTitle}.
 
 Student's Current Skills: ${body.currentSkills.join(", ")}
 Desired Career: ${body.careerTitle}
@@ -74,25 +80,30 @@ Respond with ONLY a valid JSON object (no markdown, no code blocks, just raw JSO
 
 Create 4-6 milestones that logically progress from beginner to job-ready level.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      maxOutputTokens: 8192,
-      responseMimeType: "application/json",
-    },
-  });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json",
+      },
+    });
 
-  const rawText = response.text ?? "{}";
-  const parsed = JSON.parse(rawText);
-  res.json(parsed);
+    const rawText = response.text ?? "{}";
+    const parsed = JSON.parse(rawText);
+    res.json(parsed);
+  } catch (err: any) {
+    console.error("Error in /roadmap:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post("/chat-videos", async (req, res) => {
-  const { userMessage } = req.body as { userMessage: string };
-  if (!userMessage) return res.status(400).json({ error: "userMessage required" });
+router.post("/chat-videos", async (req: Request, res: Response) => {
+  try {
+    const { userMessage } = req.body as { userMessage: string };
+    if (!userMessage) return res.status(400).json({ error: "userMessage required" });
 
-  const extractPrompt = `Given this user message about careers: "${userMessage}"
+    const extractPrompt = `Given this user message about careers: "${userMessage}"
 Extract the main career topic and suggest 4 specific YouTube videos relevant to that career.
 Respond with ONLY valid JSON (no markdown, no code blocks):
 {
@@ -110,21 +121,26 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
 }
 If the message is not career-related, set isCareerRelated to false and return an empty videos array.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: extractPrompt }] }],
-    config: { maxOutputTokens: 4096, responseMimeType: "application/json" },
-  });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: extractPrompt }] }],
+      config: { maxOutputTokens: 4096, responseMimeType: "application/json" },
+    });
 
-  const rawText = response.text ?? "{}";
-  const parsed = JSON.parse(rawText);
-  res.json(parsed);
+    const rawText = response.text ?? "{}";
+    const parsed = JSON.parse(rawText);
+    res.json(parsed);
+  } catch (err: any) {
+    console.error("Error in /chat-videos:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post("/youtube-suggestions", async (req, res) => {
-  const body = GetYoutubeSuggestionsBody.parse(req.body);
+router.post("/youtube-suggestions", async (req: Request, res: Response) => {
+  try {
+    const body = GetYoutubeSuggestionsBody.parse(req.body);
 
-  const prompt = `You are an expert educational content curator. Suggest 8 specific YouTube channels and video series for someone learning ${body.careerTitle}.
+    const prompt = `You are an expert educational content curator. Suggest 8 specific YouTube channels and video series for someone learning ${body.careerTitle}.
 
 Topics to cover: ${body.topics.join(", ")}
 
@@ -143,18 +159,58 @@ Respond with ONLY a valid JSON object (no markdown, no code blocks, just raw JSO
 
 Make the search queries very specific and searchable. Include a mix of categories.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      maxOutputTokens: 8192,
-      responseMimeType: "application/json",
-    },
-  });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json",
+      },
+    });
 
-  const rawText = response.text ?? "{}";
-  const parsed = JSON.parse(rawText);
-  res.json(parsed);
+    const rawText = response.text ?? "{}";
+    const parsed = JSON.parse(rawText);
+    res.json(parsed);
+  } catch (err: any) {
+    console.error("Error in /youtube-suggestions:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/research-links", async (req: Request, res: Response) => {
+  try {
+    const { careerTitle } = req.query;
+    if (!careerTitle) return res.status(400).json({ error: "careerTitle required" });
+
+    const prompt = `You are an expert academic research assistant. Suggest 5 specific, high-quality research papers, technical reports, or authoritative articles for someone wanting to specialize in ${careerTitle}.
+
+Respond with ONLY a valid JSON object (no markdown, no code blocks, just raw JSON) in this exact format:
+{
+  "researchLinks": [
+    {
+      "title": "Title of the research paper or article",
+      "authors": "Authors or Organization",
+      "year": "Publication year",
+      "description": "2-3 sentence summary of why this is important for this career",
+      "url": "Direct URL or search link to the paper (arXiv, IEEE, or Google Scholar)",
+      "category": "e.g. Fundamental, Emerging Trends, Case Study, Technical Standards"
+    }
+  ]
+}
+
+Make the URLs as direct as possible or use search queries on reputable academic sites.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 2048, responseMimeType: "application/json" },
+    });
+    const parsed = JSON.parse(response.text ?? "{}");
+    res.json(parsed.researchLinks ?? []);
+  } catch (err: any) {
+    console.error("Error in /research-links:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

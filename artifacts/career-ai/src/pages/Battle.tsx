@@ -1,14 +1,45 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
-import { Swords, Trophy, Clock, Loader2, CheckCircle, XCircle, Star, Target, Zap } from "lucide-react";
+import { Swords, Trophy, Clock, Loader2, CheckCircle, XCircle, Star, Target, Zap, Search, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Navbar } from "@/components/layout/Navbar";
 import { useAuth } from "@/context/AuthContext";
 import { getAvatar } from "@/lib/avatars";
 import { io as socketIo, type Socket } from "socket.io-client";
 
-const CAREER_FIELDS = ["Machine Learning", "Web Development", "Data Science", "Cybersecurity", "Cloud Computing", "UX Design", "DevOps", "Blockchain", "Game Development", "Mobile Development"];
+const CAREER_FIELDS = [
+  // Technology
+  "Machine Learning", "Web Development", "Data Science", "Cybersecurity", "Cloud Computing", 
+  "UX Design", "DevOps", "Blockchain", "Game Development", "Mobile Development",
+  // Healthcare & Medicine
+  "Medicine", "Nursing", "Pharmacy", "Dentistry", "Psychology", "Physical Therapy", 
+  "Public Health", "Biotechnology",
+  // Business & Finance
+  "Business Administration", "Finance", "Accounting", "Marketing", "Entrepreneurship",
+  "Human Resources", "Supply Chain Management", "Economics",
+  // Arts & Design
+  "Graphic Design", "Fine Arts", "Music", "Film & Video", "Photography", 
+  "Fashion Design", "Interior Design", "Architecture",
+  // Sciences
+  "Physics", "Chemistry", "Biology", "Mathematics", "Environmental Science",
+  "Astronomy", "Geology",
+  // Engineering
+  "Mechanical Engineering", "Electrical Engineering", "Civil Engineering", 
+  "Chemical Engineering", "Aerospace Engineering", "Robotics",
+  // Social Sciences & Humanities
+  "Law", "Political Science", "Sociology", "History", "Philosophy", 
+  "Literature", "Linguistics", "Anthropology",
+  // Education
+  "Elementary Education", "Secondary Education", "Higher Education", 
+  "Special Education", "Educational Technology",
+  // Media & Communication
+  "Journalism", "Public Relations", "Digital Media", "Advertising",
+  // Trades & Services
+  "Culinary Arts", "Hospitality Management", "Automotive Technology", 
+  "Construction", "Agriculture", "Veterinary Science"
+];
 const QUESTION_TIME = 20;
 
 type Phase = "setup" | "waiting" | "active" | "finished";
@@ -21,7 +52,14 @@ export default function Battle() {
   const [, setLocation] = useLocation();
   const [phase, setPhase] = useState<Phase>("setup");
   const [careerField, setCareerField] = useState(CAREER_FIELDS[0]);
+  const [fieldSearch, setFieldSearch] = useState(CAREER_FIELDS[0]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [battle, setBattle] = useState<BattleData | null>(null);
+  
+  // Filter career fields based on search input
+  const filteredFields = CAREER_FIELDS.filter(field => 
+    field.toLowerCase().includes(fieldSearch.toLowerCase())
+  );
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -162,14 +200,60 @@ export default function Battle() {
               <div className="glass rounded-2xl p-8 border border-white/10 space-y-6">
                 <div>
                   <label className="text-sm text-gray-300 font-medium mb-3 block">Choose your battlefield</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {CAREER_FIELDS.map(f => (
-                      <button key={f} onClick={() => setCareerField(f)}
-                        className={`p-3 rounded-xl text-sm font-medium text-left transition-all border ${careerField === f ? "bg-primary/20 border-primary/50 text-primary" : "border-white/10 text-gray-300 hover:bg-white/5"}`}>
-                        {f}
-                      </button>
-                    ))}
+                  
+                  {/* Searchable Dropdown for Career Fields */}
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder="Search career fields..."
+                        value={fieldSearch}
+                        onChange={(e) => {
+                          setFieldSearch(e.target.value);
+                          setShowDropdown(true);
+                        }}
+                        onFocus={() => setShowDropdown(true)}
+                        className="pl-10 pr-4 py-3 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus-visible:ring-primary/50"
+                      />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    
+                    {/* Dropdown Results */}
+                    {showDropdown && (
+                      <div className="absolute z-50 w-full mt-2 max-h-64 overflow-y-auto glass rounded-xl border border-white/10 bg-black/80 backdrop-blur-xl">
+                        {filteredFields.length > 0 ? (
+                          filteredFields.map((field) => (
+                            <button
+                              key={field}
+                              onClick={() => {
+                                setCareerField(field);
+                                setFieldSearch(field);
+                                setShowDropdown(false);
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-white/10 ${
+                                careerField === field ? "bg-primary/20 text-primary" : "text-gray-300"
+                              }`}
+                            >
+                              {field}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-gray-500">No fields found</div>
+                        )}
+                      </div>
+                    )}
                   </div>
+                  
+                  {/* Selected Field Display */}
+                  {careerField && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="text-sm text-gray-400">Selected:</span>
+                      <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-sm font-medium">
+                        {careerField}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
                   <p className="text-yellow-300 text-sm font-medium">🏆 Battle Stakes</p>
