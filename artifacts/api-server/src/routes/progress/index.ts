@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, roadmapProgress, quizResults, users, battles } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../../middlewares/auth";
 
 const router = Router();
@@ -47,17 +47,27 @@ router.put("/roadmap/:careerTitle/:milestoneIndex", authMiddleware, async (req: 
 
 router.get("/activity", authMiddleware, async (req: AuthRequest, res) => {
   try {
+    const userId = req.userId!;
+
     const quizHistory = await db.select().from(quizResults)
-      .where(eq(quizResults.userId, req.userId!))
+      .where(eq(quizResults.userId, userId))
       .orderBy(desc(quizResults.createdAt))
       .limit(20);
 
-    const battleHistory = await db.select().from(battles)
-      .where(eq(battles.player1Id, req.userId!))
+    const allBattles = await db.select().from(battles)
+      .where(or(eq(battles.player1Id, userId), eq(battles.player2Id, userId)))
       .orderBy(desc(battles.createdAt))
-      .limit(10);
+      .limit(50);
 
-    res.json({ quizHistory, battleHistory });
+    const completed = allBattles.filter(b => b.status === "completed" && b.winnerId !== null);
+    const wins = completed.filter(b => b.winnerId === userId).length;
+    const losses = completed.filter(b => b.winnerId !== userId).length;
+
+    const roadmapData = await db.select().from(roadmapProgress)
+      .where(eq(roadmapProgress.userId, userId));
+    const milestonesCompleted = roadmapData.filter(r => r.completed).length;
+
+    res.json({ quizHistory, battleHistory: allBattles.slice(0, 10), wins, losses, milestonesCompleted });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

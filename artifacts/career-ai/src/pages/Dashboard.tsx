@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
-import { Trophy, Swords, Target, TrendingUp, Star, BookOpen, BarChart2, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Trophy, Swords, Star, BookOpen, BarChart2, Clock, CheckCircle, XCircle, Flame, Skull, GraduationCap } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -9,6 +9,7 @@ import { getAvatar } from "@/lib/avatars";
 
 interface LeaderboardEntry { id: number; username: string; avatarId: number; points: number; careerField: string | null; }
 interface QuizResult { id: number; careerField: string; score: number; total: number; type: string; createdAt: string; }
+interface ActivityData { quizHistory: QuizResult[]; wins: number; losses: number; milestonesCompleted: number; }
 
 function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
   return (
@@ -28,7 +29,7 @@ export default function Dashboard() {
   const { user, token } = useAuth();
   const [, setLocation] = useLocation();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [activity, setActivity] = useState<{ quizHistory: QuizResult[] }>({ quizHistory: [] });
+  const [activity, setActivity] = useState<ActivityData>({ quizHistory: [], wins: 0, losses: 0, milestonesCompleted: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -47,10 +48,6 @@ export default function Dashboard() {
 
   const userRank = leaderboard.findIndex(u => u.id === user.id) + 1;
   const avatar = getAvatar(user.avatarId);
-  const winCount = activity.quizHistory?.filter(q => q.score === q.total).length ?? 0;
-  const avgScore = activity.quizHistory?.length
-    ? Math.round((activity.quizHistory.reduce((s, q) => s + (q.score / q.total) * 100, 0) / activity.quizHistory.length))
-    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -79,11 +76,13 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <StatCard icon={<Star className="w-7 h-7 text-yellow-400" />} label="Total Points" value={user.points.toLocaleString()} color="border-yellow-500/20" />
           <StatCard icon={<Trophy className="w-7 h-7 text-purple-400" />} label="Global Rank" value={userRank ? `#${userRank}` : "—"} color="border-purple-500/20" />
-          <StatCard icon={<Target className="w-7 h-7 text-green-400" />} label="Avg Score" value={`${avgScore}%`} color="border-green-500/20" />
-          <StatCard icon={<TrendingUp className="w-7 h-7 text-cyan-400" />} label="Tests Taken" value={activity.quizHistory?.length ?? 0} color="border-cyan-500/20" />
+          <StatCard icon={<Flame className="w-7 h-7 text-green-400" />} label="Battle Wins" value={activity.wins} color="border-green-500/20" />
+          <StatCard icon={<Skull className="w-7 h-7 text-red-400" />} label="Battle Losses" value={activity.losses} color="border-red-500/20" />
+          <StatCard icon={<GraduationCap className="w-7 h-7 text-cyan-400" />} label="Milestones Done" value={activity.milestonesCompleted} color="border-cyan-500/20" />
+          <StatCard icon={<BookOpen className="w-7 h-7 text-orange-400" />} label="Quizzes Taken" value={activity.quizHistory?.length ?? 0} color="border-orange-500/20" />
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">

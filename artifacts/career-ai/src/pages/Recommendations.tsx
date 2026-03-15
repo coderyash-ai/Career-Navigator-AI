@@ -62,7 +62,7 @@ export default function Recommendations() {
               Based on your unique profile, our AI has identified these optimal career paths. Select one to generate a step-by-step roadmap.
             </p>
           </div>
-          <Link href="/chat">
+          <Link href="/chat?discuss=matches">
             <Button variant="glass" className="rounded-full whitespace-nowrap border-primary/50">
               <Bot className="w-5 h-5 mr-2 text-primary" />
               Discuss Matches with AI
